@@ -85,7 +85,7 @@ def get_last_daily_check():
     #for filepath in os.listdir("."):
     # For pure .py files 
 
-    print("current_filepath: ", CURRENT_PATH)
+    print("current_filepath: ", CURRENT_PATH) 
     xlsx_path = None
     for filepath in os.listdir(CURRENT_PATH):
         file_name, extension = os.path.splitext(filepath)
