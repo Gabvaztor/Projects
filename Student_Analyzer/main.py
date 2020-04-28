@@ -1,14 +1,13 @@
 # Imports 
 import sys, os, traceback
 import pandas as pd
-from pandas.tseries import converter
-pd.plotting.register_matplotlib_converters()
 pd.options.display.max_columns = None
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from datetime import datetime, timedelta
+import pkg_resources.py2_warn  # This module is necessary for 'pyinstaller' when it runs in a env (clean python) 
 
 #plt.style.use('ggplot')
 
@@ -217,7 +216,6 @@ def main():
             print("-----------------------------")
             print("Analyzing...")
             print("-----------------------------")
-            print("#############################")
             for alumn_name in UNIQUE_NAMES:
                 alumn_bootcamp = DICT_INFO_BY_ALUMN[alumn_name][0]
                 txt = "What have you learnt?\n\n"
@@ -287,7 +285,6 @@ def main():
 
                 global_pdf.savefig(orientation='portrait', dpi=900)  
                 plt.close("all")
-            print("#############################")
             print("-----------------------------")
             print("Alumns analyzed!")
             print("-----------------------------")
