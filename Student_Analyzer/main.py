@@ -85,11 +85,10 @@ def get_last_daily_check():
     #for filepath in os.listdir("."):
     # For pure .py files 
 
-    print("current_filepath: ", CURRENT_PATH) 
+    #print("current_filepath: ", CURRENT_PATH) 
     xlsx_path = None
     for filepath in os.listdir(CURRENT_PATH):
         file_name, extension = os.path.splitext(filepath)
-        print(filepath)
         #LOGGER.write_to_logger("filepath: " + filepath)
         if "xlsx" in extension:
             xlsx_path = filepath
@@ -104,16 +103,17 @@ def getImage(path):
     return OffsetImage(plt.imread(path))
 
 @to_logger
-def choose_image(x, y, ax):
-    for x0, y0 in zip(x, y):
-        if y0 > 4:
+def choose_image(x, y, data_logic, ax):
+    for i, (x0, y0) in enumerate(zip(x, y)):
+        dl = data_logic[i]
+        if dl > 4:
             path = HEADS_FOLDER + "5_smile.png"
-        elif y0 == 4:
+        elif dl == 4:
             path = HEADS_FOLDER + "4_sad.png"
-        elif y0 == 3:
+        elif dl == 3:
             path = HEADS_FOLDER + "3_angry.png"
-        elif y0 == 2:
-            path = HEADS_FOLDER + "2_scary.png"
+        elif dl == 2:
+            path = HEADS_FOLDER + "2_scary2.png"
         else:
             path = HEADS_FOLDER + "1_confused.png"
 
@@ -123,12 +123,17 @@ def choose_image(x, y, ax):
 
 @to_logger
 def reformat_string_if_longer_than_n_chars(string, n):
-
+    
     if len(string) > n:
+        
         split_strings = [string[index : index + n] for index in range(0, len(string), n)]
         last_string = split_strings[-1]
-        string = "".join((s + "\n") for s in split_strings[:-2])
+        #print("------------------------")
+        #print(split_strings)
+        #print("Original:\n",string)
+        string = "".join((s + "\n") for s in split_strings[:-1])
         string += last_string
+        #print("Final String:\n",string)
     return string
 
 @to_logger
@@ -155,7 +160,7 @@ def main():
 
         """ Columns to focus on:
 
-        - Fecha
+        - Marca Temporal
         - Nombre
         - ¿Qué programa estás cursando?
         - ¿Cómo te sientes al finalizar la jornada de clase? Puedes añadir tus propias opciones, si lo deseas.
@@ -175,13 +180,13 @@ def main():
 
         new_columns = ["Date", "Name", "Bootcamp", "Sentiment", "Learnt", "Day_Score"]
 
-        renames = {'Fecha':'Date',
+        renames = {'Marca temporal':'Date',
                 'Nombre':'Name',
                 '¿Qué programa estás cursando?': 'Bootcamp',
                 '¿Cómo te sientes al finalizar la jornada de clase? Puedes añadir tus propias opciones, si lo deseas.':'Sentiment',
                 '¿Qué has aprendido hoy en clase? ':'Learnt',
                 '¿Qué puntuación le darías a este día?':'Day_Score',
-                    }
+                }
 
         # Rename columns
         df.rename(columns=renames, inplace=True) 
@@ -212,11 +217,15 @@ def main():
         """
 
         with PdfPages(PDF_PATH + "1_Global_Analysis.pdf") as global_pdf:
-            print("#############################")
+            #print("#############################")
             print("-----------------------------")
             print("Analyzing...")
             print("-----------------------------")
-            for alumn_name in UNIQUE_NAMES:
+            for alumn_index, alumn_name in enumerate(UNIQUE_NAMES):
+                if alumn_index+1 != len(UNIQUE_NAMES):
+                    print("Progress: ", alumn_index+1, "/", len(UNIQUE_NAMES), end="\r")
+                else:
+                    print("Progress: ", alumn_index+1, "/", len(UNIQUE_NAMES))
                 alumn_bootcamp = DICT_INFO_BY_ALUMN[alumn_name][0]
                 txt = "What have you learnt?\n\n"
                 title = (alumn_name + " | " + alumn_bootcamp) if len((alumn_name + " | " + alumn_bootcamp)) <=54 else (alumn_name + "\n" + alumn_bootcamp)
@@ -225,7 +234,10 @@ def main():
                 with PdfPages(PDF_PATH + pdf_name) as alumn_pdf:
                     
                     """ First Page """
-                    fig = plt.figure(figsize=(8.69,11.27), frameon=False)
+                    
+                    #fig = plt.figure(figsize=(8.69,11.27), frameon=False)
+                    """
+                    fig = plt.figure(figsize=(11.27,11.27), frameon=False)
 
                     ax = fig.add_axes([0, 0, 1, 1])
                     ax.axis('off')
@@ -235,60 +247,93 @@ def main():
                     fig.text(0.1, 0.6, txt, ha='left', horizontalalignment='left', verticalalignment='center',
                     bbox=dict(facecolor='grey', alpha=0.2), size=13)
                     plt.title(title)
-                    alumn_pdf.savefig(orientation='portrait', dpi=600)
+                    """
 
+                    fig = plt.figure(figsize=(11.27, 8.69), constrained_layout=True, frameon=False)
+                    ax = plt.subplot(111)
+                    ax.axis('off')
+
+                    index = list(DICT_INFO_BY_ALUMN[alumn_name][2].index)
+                    index_, learnt = zip(*sorted(zip(index, list(DICT_INFO_BY_ALUMN[alumn_name][3].values))))
+                    colLabels = ["Date", "What have you learnt?"] # <--- 1 row, 7 columns
+
+                    cellText = []
+                    max_length = 0
+                    for i, date in enumerate(index_):
+                        if len(learnt[i]) > max_length:
+                            max_length = len(learnt[i])
+                        t = reformat_string_if_longer_than_n_chars(learnt[i], 85)
+                        row = [date.strftime("%Y-%m-%d"), t]
+                        cellText.append(row)
+                        #cellText = [["a", "b"],["c", "d"]]
+
+                    tab = ax.table(cellText=cellText, colLabels=colLabels, bbox=[0, 0, 1, 1], cellLoc = 'left')
+                    tab.auto_set_font_size(False)
+                    tab.auto_set_column_width(col=max_length) # Provide integer list of columns to adjust 
+                    tab.set_fontsize(13)
+
+                    cellDict=tab.get_celld()
+                    try:
+                        for i in range(len(learnt)+1):
+                            cellDict[(i,0)].set_width(0.12)
+                            cellDict[(i,0)].set_height(0.05)
+                            cellDict[(i,1)].set_width(0.9)
+                            cellDict[(i,1)].set_height(0.05)
+                            
+
+                    except Exception as er:
+                        print("Error", er)
+                    cellDict[(0,0)].set_height(0.05)
+                    cellDict[(0,1)].set_height(0.05)
+
+                    alumn_pdf.savefig(orientation='portrait', dpi=2000)
+                    
+                
                     """ Second Page """
-
+                    
+                    # Only one figure and one plot
                     # Sentiment plot 
-                    fig2, (ax1, ax2) = plt.subplots(2, figsize=(8.69,11.27), constrained_layout=False)
-                    #fig.subplots_adjust(bottom=1.4, top=1.5)
-                    fig2.subplots_adjust(hspace=-.5)
-                    fig2.tight_layout()
+                    fig2, (ax1) = plt.subplots(figsize=(11.27, 8.69), constrained_layout=False)
+                    #fig2.subplots_adjust(hspace=0.1, bottom=0.4, top=1.5)
+                    #fig2.tight_layout()
                     fig2.autofmt_xdate()
 
-                    plt.suptitle("Sentiment & Day Score plots", x=0.5, y=.1, horizontalalignment='center', 
-                    verticalalignment='top', fontsize = 22)
-            
-                    index = DICT_INFO_BY_ALUMN[alumn_name][1].index
-                    sentiment_data = DICT_INFO_BY_ALUMN[alumn_name][1].values
-
-                    #ax1.legend()
-                    #ax1.spines["left"].set_position(("axes", .03))
-                    ax1.spines["bottom"].set_bounds(0, 0)
-                    ax1.set_facecolor("#fffffc")
-                    #ax1.spines["bottom"].set_linewidth(6)
-                    ax1.grid(True)
-                    ax1.scatter(index, sentiment_data, label="Sentiment")
-                    ax1.fmt_xdata = mdates.DateFormatter('%m-%d')
-                    choose_image(x=index, y=sentiment_data, ax=ax1)
-                    
-                    
-                    ax1.set_xlim([index[0] - timedelta(3), index[0] + timedelta(23)])
-                    ax1.set_ylim([0, 5])
+                    #plt.suptitle("Sentiment & Day Score plots", horizontalalignment='center', verticalalignment='top', fontsize = 22)
+                    #plt.suptitle("Sentiment & Day Score plots", x=0.5, y=.1, horizontalalignment='center', verticalalignment='top', fontsize = 22)
 
                     # Day_Score
-                    index = DICT_INFO_BY_ALUMN[alumn_name][2].index
-                    day_score = DICT_INFO_BY_ALUMN[alumn_name][2].values
+                    day_score = list(DICT_INFO_BY_ALUMN[alumn_name][2].values)
+                    sentiment_data = list(DICT_INFO_BY_ALUMN[alumn_name][1].values)
+
+                    index, day_score, sentiment_data = zip(*sorted(zip(index, day_score, sentiment_data)))
+
+                    #ax1.legend()
+                    #ax1.spines["top"].set_bounds(0, 0)
+                    #ax1.set_facecolor("#fffffd")
+                    #ax1.grid(True)
                     
-                    #ax2.legend()
-                    ax2.spines["top"].set_bounds(0, 0)
-                    ax2.set_facecolor("#fffffd")
-                    ax2.grid(True)
-                    ax2.scatter(index, day_score, label="Day Score")
-                    ax2.fmt_xdata = mdates.DateFormatter('%m-%d')
-                    choose_image(x=index, y=day_score, ax=ax2)
+                    ax1.scatter(index, day_score, label="Day Score")
 
-                    ax2.set_xlim([index[0] - timedelta(3), index[0] + timedelta(23)])
-                    ax2.set_ylim([0, 6])
+                    #for i in range(0, len(day_score), 1):
+                    #    plt.plot(index[i:i+1], day_score[i:i+1], 'r--')
+                    ax1.plot(index, day_score, "--", label="Day Score")
+                    ax1.set(ylabel="Happyness of day", title="Day Score")
+                    ax1.scatter(index, day_score, label="Day Score")
+                    ax1.fmt_xdata = mdates.DateFormatter('%d-%m-%y')
+                    choose_image(x=index, y=day_score, data_logic=sentiment_data, ax=ax1)
 
-                    alumn_pdf.savefig(orientation='portrait', dpi=900)
+                    ax1.set_xlim([index[0] - timedelta(3), index[0] + timedelta(25)])
+                    ax1.set_ylim([0, 7])
 
-                global_pdf.savefig(orientation='portrait', dpi=900)  
+                    alumn_pdf.savefig(orientation='landscape', dpi=2000)
+
+                global_pdf.savefig(orientation='landscape', dpi=2000)  
                 plt.close("all")
+                
             print("-----------------------------")
             print("Alumns analyzed!")
             print("-----------------------------")
-            print("#############################")
+            #print("#############################")
             sys.exit()
     except Exception as error:
         LOGGER.write_log_error(err=error, info="")
